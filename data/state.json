@@ -1,0 +1,34 @@
+{
+  "version": 2,
+  "updated": "2026-07-19",
+  "last_run": {"id": "D20260719", "type": "daily", "posted_at_jst": "2026-07-19"},
+  "next_num": 13,
+  "netacho": {
+    "ichigun": [],
+    "keep": [],
+    "kirikuchi": [],
+    "trash": [],
+    "pending": [
+      {"num": 4, "run": "D20260719", "title": "新型CB400 SUPER FOUR 8/21発売確定(CB500SF E-Clutch試乗詳報)", "genre": "車両", "url": "https://www.autoby.jp/_ct/17852936", "posted": "2026-07-19"},
+      {"num": 5, "run": "D20260719", "title": "ホンダ×ヤマハ もてぎコラボ展 7/18開幕(〜10/18)", "genre": "イベント", "url": "https://news.webike.net/bikenews/568186", "posted": "2026-07-19"},
+      {"num": 6, "run": "D20260719", "title": "ヴィンス ドゥエチンクアンタ 2スト250cc新車が日本上陸", "genre": "車両", "url": "https://young-machine.com/2026/07/19/740139/", "posted": "2026-07-19"},
+      {"num": 7, "run": "D20260719", "title": "LUUP都内初死亡事故続報・シェア電動キックのノーヘル問題", "genre": "電動モビリティ/制度", "url": "https://trafficnews.jp/post/688616", "posted": "2026-07-19"},
+      {"num": 8, "run": "D20260719", "title": "大阪府警 新御堂筋すり抜け集中取締り(ヘリ投入)", "genre": "取り締まり", "url": "https://news.yahoo.co.jp/articles/690916a546150b9a35116294504351eca4c49cc7", "posted": "2026-07-19"},
+      {"num": 9, "run": "D20260719", "title": "自賠責13年ぶり値上げ(11/1〜平均6.2%増・10月中更新なら旧料金)", "genre": "税金・維持費", "url": "https://motor-fan.jp/article/1548683/", "posted": "2026-07-19"},
+      {"num": 10, "run": "D20260719", "title": "ガソリン補助金 7/16〜22は7.5円/Lに拡大(9週ぶり水準)", "genre": "ガソリン価格", "url": "https://news.yahoo.co.jp/articles/a6b1bed51857b41d6b78ade0bcaa664712a284d4", "posted": "2026-07-19"},
+      {"num": 11, "run": "D20260719", "title": "7/22名古屋40℃予想・初の酷暑日なるか", "genre": "季節", "url": "https://tenki.jp/forecaster/y_maki/2026/07/18/39776.html", "posted": "2026-07-19"},
+      {"num": 12, "run": "D20260719", "title": "Ninja 500国内初試乗(切り口勝負枠)", "genre": "車両/切り口勝負", "url": "https://www.autoby.jp/_ct/17853124", "posted": "2026-07-19"}
+    ]
+  },
+  "predictions": [
+    {"num": 4, "run": "D20260719", "prediction": "一軍候補"},
+    {"num": 5, "run": "D20260719", "prediction": "一軍候補(ロケ企画)"},
+    {"num": 6, "run": "D20260719", "prediction": "キープ(語り企画なら一軍も)"},
+    {"num": 7, "run": "D20260719", "prediction": "一軍候補"},
+    {"num": 8, "run": "D20260719", "prediction": "一軍候補"},
+    {"num": 9, "run": "D20260719", "prediction": "キープ(9-10月に一軍昇格想定)"},
+    {"num": 10, "run": "D20260719", "prediction": "キープ"},
+    {"num": 11, "run": "D20260719", "prediction": "キープ"},
+    {"num": 12, "run": "D20260719", "prediction": "キープ"}
+  ]
+}
