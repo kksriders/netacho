@@ -8,11 +8,7 @@
   :root{
     --bg:#14171c; --panel:#1d222a; --line:#2c333e;
     --ink:#eef1f5; --sub:#9aa4b2;
-    --amber:#ffb020;  /* ⭐一軍 */
-    --keep:#4fc3f7;   /* 👍キープ */
-    --thru:#8f9aa8;   /* ➖スルー */
-    --drop:#ef6461;   /* ❌ズレ */
-    --ok:#7ed491;
+    --amber:#ffb020; --keep:#4fc3f7; --thru:#8f9aa8; --drop:#ef6461; --ok:#7ed491;
   }
   *{box-sizing:border-box;margin:0;padding:0}
   body{background:var(--bg);color:var(--ink);
@@ -40,8 +36,9 @@
   .card .top{display:flex;gap:10px;align-items:flex-start}
   .num{flex:none;width:38px;height:38px;border-radius:9px;background:var(--line);
     display:flex;align-items:center;justify-content:center;font-weight:800;font-size:14px}
+  .thumb{flex:none;width:96px;border-radius:8px;display:block}
   .ttl{font-weight:700;font-size:15px}
-  .meta{font-size:12px;color:var(--sub);margin-top:3px;display:flex;gap:8px;flex-wrap:wrap}
+  .meta{font-size:12px;color:var(--sub);margin-top:3px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
   .meta .genre{color:var(--amber)}
   .pred{font-size:12px;color:var(--sub);margin-top:6px}
   .pred b{color:var(--ink);font-weight:600}
@@ -58,6 +55,16 @@
   .card.s-keep{border-color:var(--keep)}
   .card.s-thru{border-color:var(--thru);opacity:.8}
   .card.s-drop{border-color:var(--drop);opacity:.75}
+  .card.sent{opacity:.55}
+  .sentmark{font-size:11px;font-weight:700;color:var(--ok);margin-top:8px}
+  .stockmeta{font-size:12px;color:var(--sub);margin-top:8px;border-top:1px solid var(--line);padding-top:8px}
+  .tag{font-size:11px;font-weight:700;border-radius:6px;padding:1px 7px}
+  .tag.thru{background:var(--thru);color:#14171c}
+  .tag.drop{background:var(--drop);color:#fff}
+  .tag.fresh{background:var(--drop);color:#fff}
+  .revive{display:flex;gap:6px;margin-top:10px}
+  .revive button{appearance:none;font:inherit;font-weight:700;font-size:12px;
+    padding:7px 12px;border-radius:8px;border:1.5px solid var(--line);background:none;color:var(--sub);cursor:pointer}
   .bar{position:fixed;left:0;right:0;bottom:0;background:#10131a;border-top:1px solid var(--line);
     padding:12px 16px;display:flex;gap:12px;align-items:center;justify-content:center}
   .bar .sum{font-size:13px;color:var(--sub)}
@@ -68,22 +75,14 @@
   .toast{position:fixed;left:50%;bottom:88px;transform:translateX(-50%);
     background:var(--ok);color:#04270f;font-weight:700;font-size:14px;
     padding:10px 18px;border-radius:10px;opacity:0;pointer-events:none;transition:opacity .2s;
-    max-width:88vw;text-align:center}
+    max-width:88vw;text-align:center;z-index:5}
   .toast.err{background:var(--drop);color:#fff}
   .toast.show{opacity:1}
   .empty{border:1.5px dashed var(--line);border-radius:12px;padding:26px 18px;
     text-align:center;color:var(--sub);font-size:14px;margin-bottom:14px}
   .empty b{color:var(--ink)}
-  .sampletag{position:absolute;top:10px;right:12px;font-size:10px;color:var(--sub);
-    border:1px solid var(--line);border-radius:6px;padding:1px 6px}
-  .sample{opacity:.6}
-  .stockmeta{font-size:12px;color:var(--sub);margin-top:8px;border-top:1px solid var(--line);padding-top:8px}
-  .tag{font-size:11px;font-weight:700;border-radius:6px;padding:1px 7px}
-  .tag.thru{background:var(--thru);color:#14171c}
-  .tag.drop{background:var(--drop);color:#fff}
   .hide{display:none}
-  /* 設定 */
-  .modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;padding:20px}
+  .modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;padding:20px;z-index:10}
   .modal.show{display:flex}
   .mbox{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px;max-width:420px;width:100%}
   .mbox h2{font-size:16px;margin-bottom:8px}
@@ -101,67 +100,46 @@
 <header>
   <div class="brand">
     <h1>げんチャんねる <span>ネタ帳</span></h1>
-    <div class="run">最終更新: 2026-07-19 便D20260719</div>
+    <div class="run" id="runlabel">読み込み中…</div>
     <button class="gear" onclick="openSettings()">⚙ 設定</button>
   </div>
   <nav>
-    <button class="act" data-tab="sort">仕分け<span class="cnt" id="n-sort">9</span></button>
-    <button data-tab="star">⭐ 一軍<span class="cnt">0</span></button>
-    <button data-tab="keep">👍 キープ<span class="cnt">0</span></button>
-    <button data-tab="trash">ゴミ箱<span class="cnt">0</span></button>
+    <button class="act" data-tab="sort">仕分け<span class="cnt" id="n-sort">-</span></button>
+    <button data-tab="star">⭐ 一軍<span class="cnt" id="n-star">-</span></button>
+    <button data-tab="keep">👍 キープ<span class="cnt" id="n-keep">-</span></button>
+    <button data-tab="trash">ゴミ箱<span class="cnt" id="n-trash">-</span></button>
   </nav>
 </header>
 
 <main>
-  <!-- 仕分け -->
   <section id="tab-sort">
-    <p class="note">最新便の新着と、前回までの未判断分がここに並びます。全カードに ⭐/👍/➖/❌ のどれかを押し、[反映する]で送信してください。押していないカード=未判断として翌日以降も残ります(自動では消えません)。</p>
-    <div id="cards"></div>
+    <p class="note">最新便の新着と、前回までの未判断分がここに並びます。全カードに ⭐/👍/➖/❌ のどれかを押し、[反映する]で送信。押していないカード=未判断として翌日以降も残ります。送信済み(薄い表示)は次の便で各タブへ移動します。</p>
+    <div id="list-sort"></div>
   </section>
-
-  <!-- 一軍 -->
   <section id="tab-star" class="hide">
-    <p class="note">⭐を付けたネタが蓄積されます(無期限)。土曜便が本格深掘り(切り口3案+サムネフレーズ)を追記します。</p>
-    <div class="empty">まだ一軍はありません。<br><b>仕分けタブで⭐を付けると、ここに溜まっていきます。</b></div>
-    <div class="card sample"><span class="sampletag">表示サンプル</span>
-      <div class="top"><div class="num">--</div><div>
-        <div class="ttl">(例)自賠責13年ぶり値上げ 11/1施行</div>
-        <div class="meta"><span class="genre">税金・維持費</span><span>⭐登録 07-21</span><span>鮮度⏰ 10月中に撮る</span></div>
-      </div></div>
-      <div class="stockmeta">池: 全ライダー+車オーナー(数千万)/深掘り: 切り口3案・サムネ2本(土曜便S20260725)</div>
-    </div>
+    <p class="note">⭐一軍の蓄積(無期限)。土曜便が本格深掘り(切り口3案+サムネフレーズ)を追記します。</p>
+    <div id="list-star"></div>
   </section>
-
-  <!-- キープ -->
   <section id="tab-keep" class="hide">
-    <p class="note">👍のネタが蓄積されます。ニュース系は30日で棚卸し(土曜便が確認)、普遍ネタは無期限。</p>
-    <div class="empty">まだキープはありません。<br><b>「今すぐじゃないけど使えそう」を👍でここへ。</b></div>
+    <p class="note">👍キープの蓄積。ニュース系は30日で棚卸し、普遍ネタは無期限。</p>
+    <div id="list-keep"></div>
   </section>
-
-  <!-- ゴミ箱 -->
   <section id="tab-trash" class="hide">
-    <p class="note">➖スルーと❌ズレはここに30日間保管され、その後自動削除されます。❌は「チャンネルの方向性と違う」の強いシグナルとして判定基準の学習に使われ、➖は「見たが今回は使わない」の弱いシグナルになります。拾い直したいときはカードの[復活⭐]/[復活👍]を押してください。</p>
-    <div class="empty">ゴミ箱は空です。</div>
-    <div class="card sample"><span class="sampletag">表示サンプル</span>
-      <div class="top"><div class="num">--</div><div>
-        <div class="ttl">(例)〇〇のマイナーカスタムイベント</div>
-        <div class="meta"><span class="tag drop">❌ズレ</span><span>07-21 仕分け</span><span>削除まで あと26日</span></div>
-      </div></div>
-    </div>
+    <p class="note">➖スルーと❌ズレは30日間ここに保管され、その後自動削除。拾い直すときは[復活]を押してください(次の便で反映)。</p>
+    <div id="list-trash"></div>
   </section>
 </main>
 
 <div class="bar" id="bar">
-  <div class="sum" id="sum">未判断: 9本</div>
+  <div class="sum" id="sum">読み込み中…</div>
   <button id="apply" disabled>反映する</button>
 </div>
 <div class="toast" id="toast"></div>
 
-<!-- 設定モーダル -->
 <div class="modal" id="settings">
   <div class="mbox">
     <h2>GitHubトークン</h2>
-    <p>初回のみ: このネタ帳の仕分けをGitHubに書き込むためのトークン(netacho-updater)を登録してください。競合ヒット動画ウォッチと同じ仕組みで、このブラウザ内にのみ保存されます。</p>
+    <p>仕分けをGitHubに書き込むためのトークン(netacho-updater)。このブラウザ内にのみ保存されます。</p>
     <input type="password" id="tokenInput" placeholder="github_pat_...">
     <div class="row">
       <button class="cancel" onclick="closeSettings()">閉じる</button>
@@ -171,133 +149,208 @@
 </div>
 
 <script>
-/* ====== 設定(本番用) ====== */
-const REPO = "kksriders/netacho";      // 仕分けの書き込み先リポジトリ
-const RUN  = "D20260719";
+const REPO = "kksriders/netacho";
+let S = null;       // state.json
+let RUN = "";
+const sel = {};     // 今回の選択 num -> kind
+let sent = {};      // 送信済み num -> kind (ブラウザ保存)
 
-/* ====== 便が埋め込むデータ(毎便この配列を再生成) ====== */
-const items = [
-  {num:4, title:"新型CB400 SUPER FOUR 8/21発売確定(CB500SF E-Clutch試乗詳報)", genre:"車両", url:"https://www.autoby.jp/_ct/17852936", pred:"一軍候補", carried:false},
-  {num:5, title:"ホンダ×ヤマハ もてぎコラボ展 7/18開幕(〜10/18)", genre:"イベント", url:"https://news.webike.net/bikenews/568186", pred:"一軍候補(ロケ企画)", carried:false},
-  {num:6, title:"ヴィンス ドゥエチンクアンタ 2スト250cc新車が日本上陸", genre:"車両", url:"https://young-machine.com/2026/07/19/740139/", pred:"キープ(語り企画なら一軍も)", carried:false},
-  {num:7, title:"LUUP都内初死亡事故続報・シェア電動キックのノーヘル問題", genre:"電動モビリティ/制度", url:"https://trafficnews.jp/post/688616", pred:"一軍候補", carried:false},
-  {num:8, title:"大阪府警 新御堂筋すり抜け集中取締り(ヘリ投入)", genre:"取り締まり", url:"https://news.yahoo.co.jp/articles/690916a546150b9a35116294504351eca4c49cc7", pred:"一軍候補", carried:false},
-  {num:9, title:"自賠責13年ぶり値上げ(11/1〜平均6.2%増・10月中更新なら旧料金)", genre:"税金・維持費", url:"https://motor-fan.jp/article/1548683/", pred:"キープ(9-10月に一軍昇格想定)", carried:false},
-  {num:10, title:"ガソリン補助金 7/16〜22は7.5円/Lに拡大(9週ぶり水準)", genre:"ガソリン価格", url:"https://news.yahoo.co.jp/articles/a6b1bed51857b41d6b78ade0bcaa664712a284d4", pred:"キープ", carried:false},
-  {num:11, title:"7/22名古屋40℃予想・初の酷暑日なるか", genre:"季節", url:"https://tenki.jp/forecaster/y_maki/2026/07/18/39776.html", pred:"キープ", carried:false},
-  {num:12, title:"Ninja 500国内初試乗(切り口勝負枠)", genre:"車両/切り口勝負", url:"https://www.autoby.jp/_ct/17853124", pred:"キープ", carried:false}
-];
-
-const state = {}; // num -> 'star'|'keep'|'thru'|'drop'
-const KINDS = {star:"⭐一軍", keep:"👍キープ", thru:"➖スルー", drop:"❌ズレ"};
-
-/* ローカル保存(GitHub Pages上で有効。プレビュー環境では黙って無効) */
 const store = {
-  get k(){ try{return localStorage.getItem("netacho_token")}catch(e){return null} },
-  set k(v){ try{ v===null ? localStorage.removeItem("netacho_token") : localStorage.setItem("netacho_token", v) }catch(e){} }
+  get token(){ try{return localStorage.getItem("netacho_token")}catch(e){return null} },
+  set token(v){ try{ v===null ? localStorage.removeItem("netacho_token") : localStorage.setItem("netacho_token", v) }catch(e){} },
+  get sent(){ try{return JSON.parse(localStorage.getItem("netacho_sent")||"{}")}catch(e){return {}} },
+  set sent(v){ try{localStorage.setItem("netacho_sent", JSON.stringify(v))}catch(e){} }
 };
 
-const wrap = document.getElementById('cards');
-items.forEach(it=>{
-  const el = document.createElement('div');
-  el.className='card'; el.id='c'+it.num;
-  el.innerHTML = `
-    ${it.carried ? '<div class="carry">前回から繰り越し(未判断)</div>' : ''}
-    <div class="top">
-      <div class="num">${it.num}</div>
-      <div>
-        <div class="ttl">${it.title}</div>
-        <div class="meta"><span class="genre">${it.genre}</span><a href="${it.url}" target="_blank" rel="noopener">元記事↗</a></div>
-        <div class="pred">私の予想: <b>${it.pred}</b></div>
-      </div>
-    </div>
-    <div class="acts">
-      <button class="b-star" onclick="mark(${it.num},'star')">⭐ 一軍</button>
-      <button class="b-keep" onclick="mark(${it.num},'keep')">👍 キープ</button>
-      <button class="b-thru" onclick="mark(${it.num},'thru')">➖ スルー</button>
-      <button class="b-drop" onclick="mark(${it.num},'drop')">❌ ズレ</button>
-    </div>`;
-  wrap.appendChild(el);
-});
-refresh();
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const days = (from, n) => { // fromからn日後まで残り日数
+  const end = new Date(from); end.setDate(end.getDate()+n);
+  return Math.max(0, Math.ceil((end - Date.now())/86400000));
+};
+
+init();
+async function init(){
+  try{
+    const res = await fetch("data/state.json?t=" + Date.now());
+    S = await res.json();
+    RUN = (S.last_run && S.last_run.id) || "RUN";
+    // 送信済み記録のうち、すでに便が処理してpendingから消えたものは掃除
+    const nums = new Set((S.netacho.pending||[]).map(p=>p.num));
+    sent = store.sent;
+    Object.keys(sent).forEach(n=>{ if(!nums.has(Number(n))) delete sent[n]; });
+    store.sent = sent;
+    render();
+  }catch(e){
+    $("runlabel").textContent = "データの読み込みに失敗しました。再読み込みしてください";
+  }
+}
+
+function render(){
+  $("runlabel").textContent = `最終更新: ${S.updated} 便${RUN}`;
+  renderSort(); renderStar(); renderKeep(); renderTrash(); refresh();
+}
+
+function itemHead(it, extra){
+  const thumb = it.thumb ? `<img class="thumb" src="https://i.ytimg.com/vi/${esc(it.thumb)}/mqdefault.jpg" alt="">` : `<div class="num">${it.num}</div>`;
+  return `<div class="top">${thumb}<div>
+    <div class="ttl">${it.thumb?`<span style="color:var(--sub);font-size:12px">No.${it.num} </span>`:""}${esc(it.title)}</div>
+    <div class="meta">${extra}</div>
+  </div></div>`;
+}
+
+function renderSort(){
+  const el = $("list-sort"); el.innerHTML = "";
+  const pend = S.netacho.pending || [];
+  if(!pend.length){ el.innerHTML = `<div class="empty">仕分け待ちはありません。<b>次の便をお待ちください。</b></div>`; return; }
+  pend.forEach(it=>{
+    const done = sent[it.num];
+    const c = document.createElement('div');
+    c.className = 'card' + (done ? ' sent s-'+done : (sel[it.num] ? ' s-'+sel[it.num] : ''));
+    c.id = 'c'+it.num;
+    const carried = it.run !== RUN;
+    const meta = `<span class="genre">${esc(it.genre||"")}</span><a href="${esc(it.url)}" target="_blank" rel="noopener">元記事↗</a>`;
+    const pred = (S.predictions||[]).find(p=>p.num===it.num);
+    c.innerHTML = `
+      ${carried ? '<div class="carry">前回から繰り越し(未判断)</div>' : ''}
+      ${itemHead(it, meta)}
+      ${pred ? `<div class="pred">私の予想: <b>${esc(pred.prediction)}</b></div>` : ''}
+      ${done
+        ? `<div class="sentmark">✅ ${({star:"⭐一軍",keep:"👍キープ",thru:"➖スルー",drop:"❌ズレ"})[done]}で送信済み(次の便で移動)</div>`
+        : `<div class="acts">
+            <button class="b-star ${sel[it.num]==='star'?'on':''}" onclick="mark(${it.num},'star')">⭐ 一軍</button>
+            <button class="b-keep ${sel[it.num]==='keep'?'on':''}" onclick="mark(${it.num},'keep')">👍 キープ</button>
+            <button class="b-thru ${sel[it.num]==='thru'?'on':''}" onclick="mark(${it.num},'thru')">➖ スルー</button>
+            <button class="b-drop ${sel[it.num]==='drop'?'on':''}" onclick="mark(${it.num},'drop')">❌ ズレ</button>
+          </div>`}`;
+    el.appendChild(c);
+  });
+}
+
+function renderStar(){
+  const el = $("list-star"); el.innerHTML = "";
+  const a = S.netacho.ichigun || [];
+  $("n-star").textContent = a.length;
+  if(!a.length){ el.innerHTML = `<div class="empty">まだ一軍はありません。<b>仕分けタブで⭐を付けると、ここに溜まっていきます。</b></div>`; return; }
+  a.forEach(it=>{
+    const c = document.createElement('div'); c.className='card';
+    const meta = `<span class="genre">${esc(it.genre||"")}</span><span>⭐登録 ${esc(it.starred||"")}</span>`
+      + (it.fresh ? `<span class="tag fresh">⏰ ${esc(it.fresh)}</span>` : ``)
+      + `<a href="${esc(it.url)}" target="_blank" rel="noopener">元記事↗</a>`;
+    c.innerHTML = itemHead(it, meta) + (it.note ? `<div class="stockmeta">${esc(it.note)}</div>` : ``);
+    el.appendChild(c);
+  });
+}
+
+function renderKeep(){
+  const el = $("list-keep"); el.innerHTML = "";
+  const a = S.netacho.keep || [];
+  $("n-keep").textContent = a.length;
+  if(!a.length){ el.innerHTML = `<div class="empty">まだキープはありません。<b>「今すぐじゃないけど使えそう」を👍でここへ。</b></div>`; return; }
+  a.forEach(it=>{
+    const c = document.createElement('div'); c.className='card';
+    const shelf = (it.kind==="news" && it.kept) ? `<span>棚卸しまで あと${days(it.kept,30)}日</span>` : `<span>無期限</span>`;
+    const meta = `<span class="genre">${esc(it.genre||"")}</span><span>👍登録 ${esc(it.kept||"")}</span>${shelf}<a href="${esc(it.url)}" target="_blank" rel="noopener">元記事↗</a>`;
+    c.innerHTML = itemHead(it, meta) + (it.note ? `<div class="stockmeta">${esc(it.note)}</div>` : ``);
+    el.appendChild(c);
+  });
+}
+
+function renderTrash(){
+  const el = $("list-trash"); el.innerHTML = "";
+  const a = S.netacho.trash || [];
+  $("n-trash").textContent = a.length;
+  if(!a.length){ el.innerHTML = `<div class="empty">ゴミ箱は空です。</div>`; return; }
+  a.forEach(it=>{
+    const c = document.createElement('div'); c.className='card';
+    const tag = it.label==="drop" ? `<span class="tag drop">❌ズレ</span>` : `<span class="tag thru">➖スルー</span>`;
+    const meta = `${tag}<span>${esc(it.trashed||"")} 仕分け</span><span>削除まで あと${days(it.trashed||Date.now(),30)}日</span><a href="${esc(it.url)}" target="_blank" rel="noopener">元記事↗</a>`;
+    c.innerHTML = itemHead(it, meta) + `
+      <div class="revive">
+        <button onclick="revive(${it.num},'star')">復活 ⭐一軍へ</button>
+        <button onclick="revive(${it.num},'keep')">復活 👍キープへ</button>
+      </div>`;
+    el.appendChild(c);
+  });
+}
 
 function mark(num,kind){
-  state[num] = (state[num]===kind) ? undefined : kind;
-  const el = document.getElementById('c'+num);
-  el.className = 'card' + (state[num] ? ' s-'+state[num] : '');
-  el.querySelectorAll('.acts button').forEach(b=>b.classList.remove('on'));
-  if(state[num]) el.querySelector('.b-'+state[num]).classList.add('on');
-  refresh();
+  if(sent[num]) return;
+  sel[num] = (sel[num]===kind) ? undefined : kind;
+  if(sel[num]===undefined) delete sel[num];
+  renderSort(); refresh();
 }
 
 function refresh(){
-  const g = k => Object.keys(state).filter(n=>state[n]===k);
+  const pend = S ? (S.netacho.pending||[]) : [];
+  const undone = pend.filter(p=>!sent[p.num]);
+  $("n-sort").textContent = undone.length;
+  const g = k => Object.keys(sel).filter(n=>sel[n]===k);
   const done = g('star').length+g('keep').length+g('thru').length+g('drop').length;
-  const rest = items.length - done;
-  document.getElementById('sum').innerHTML = done
-    ? `⭐<b>${g('star').length}</b> 👍<b>${g('keep').length}</b> ➖<b>${g('thru').length}</b> ❌<b>${g('drop').length}</b>${rest?` / 未判断<b>${rest}</b>`:' / 全部判断済み🎉'}`
-    : `未判断: ${items.length}本`;
-  document.getElementById('apply').disabled = !done;
+  const rest = undone.length - done;
+  $("sum").innerHTML = done
+    ? `⭐<b>${g('star').length}</b> 👍<b>${g('keep').length}</b> ➖<b>${g('thru').length}</b> ❌<b>${g('drop').length}</b>${rest>0?` / 未判断<b>${rest}</b>`:' / 全部判断済み🎉'}`
+    : (undone.length ? `未判断: ${undone.length}本` : `仕分け待ちなし`);
+  $("apply").disabled = !done;
 }
 
-/* ====== 反映する: GitHubに直接書き込み ====== */
-document.getElementById('apply').onclick = async ()=>{
-  const token = store.k;
-  if(!token){ openSettings(); toast("先にGitHubトークンを登録してください", true); return; }
-  const g = k => Object.keys(state).filter(n=>state[n]===k).map(Number).sort((a,b)=>a-b);
-  const payload = {
-    run: RUN,
-    sorted_at: new Date().toISOString(),
-    star: g('star'), keep: g('keep'), thru: g('thru'), drop: g('drop')
-  };
+async function push(payload, okMsg){
+  const token = store.token;
+  if(!token){ openSettings(); toast("先にGitHubトークンを登録してください", true); return false; }
   const path = `data/sorting/${RUN}_${Date.now()}.json`;
-  const btn = document.getElementById('apply');
-  btn.disabled = true; btn.textContent = "送信中…";
   try{
     const res = await fetch(`https://api.github.com/repos/${REPO}/contents/${path}`, {
       method:"PUT",
       headers:{ "Authorization":"Bearer "+token, "Accept":"application/vnd.github+json" },
-      body: JSON.stringify({
-        message:`仕分け ${RUN}`,
-        content: btoa(unescape(encodeURIComponent(JSON.stringify(payload,null,2))))
-      })
+      body: JSON.stringify({ message:`仕分け ${RUN}`,
+        content: btoa(unescape(encodeURIComponent(JSON.stringify(payload,null,2)))) })
     });
     if(!res.ok) throw new Error(res.status);
-    toast("✅ 反映しました。次の便でネタ帳に反映されます");
-    btn.textContent = "反映済み";
+    toast(okMsg); return true;
   }catch(e){
     toast("送信に失敗しました("+e.message+")。通信環境とトークンを確認してください", true);
-    btn.textContent = "反映する"; btn.disabled = false;
+    return false;
   }
+}
+
+$("apply").onclick = async ()=>{
+  const g = k => Object.keys(sel).filter(n=>sel[n]===k).map(Number).sort((a,b)=>a-b);
+  const payload = { run: RUN, sorted_at: new Date().toISOString(),
+    star: g('star'), keep: g('keep'), thru: g('thru'), drop: g('drop') };
+  const btn = $("apply"); btn.disabled = true; btn.textContent = "送信中…";
+  const ok = await push(payload, "✅ 反映しました。次の便でネタ帳に移動します");
+  if(ok){
+    Object.keys(sel).forEach(n=>{ sent[n] = sel[n]; delete sel[n]; });
+    store.sent = sent;
+    renderSort();
+  }
+  btn.textContent = "反映する"; refresh();
 };
 
+async function revive(num, to){
+  const payload = { run: RUN, sorted_at: new Date().toISOString(),
+    revive: [{num: num, to: to}] };
+  await push(payload, `✅ No.${num}を復活リクエストしました(次の便で${to==='star'?'⭐一軍':'👍キープ'}へ)`);
+}
+
 function toast(msg, err){
-  const t = document.getElementById('toast');
-  t.textContent = msg;
+  const t = $("toast"); t.textContent = msg;
   t.className = "toast show" + (err ? " err" : "");
   setTimeout(()=>t.classList.remove('show'), 3200);
 }
-
-/* ====== 設定 ====== */
-function openSettings(){ document.getElementById('settings').classList.add('show');
-  document.getElementById('tokenInput').value = store.k || ""; }
-function closeSettings(){ document.getElementById('settings').classList.remove('show'); }
+function openSettings(){ $("settings").classList.add('show'); $("tokenInput").value = store.token || ""; }
+function closeSettings(){ $("settings").classList.remove('show'); }
 function saveToken(){
-  const v = document.getElementById('tokenInput').value.trim();
-  store.k = v || null;
-  closeSettings();
+  const v = $("tokenInput").value.trim();
+  store.token = v || null; closeSettings();
   toast(v ? "トークンを保存しました" : "トークンを削除しました");
 }
-
-/* ====== タブ ====== */
 document.querySelectorAll('nav button').forEach(b=>{
   b.onclick = ()=>{
     document.querySelectorAll('nav button').forEach(x=>x.classList.remove('act'));
     b.classList.add('act');
-    ['sort','star','keep','trash'].forEach(t=>{
-      document.getElementById('tab-'+t).classList.toggle('hide', t!==b.dataset.tab);
-    });
-    document.getElementById('bar').style.display = b.dataset.tab==='sort' ? 'flex' : 'none';
+    ['sort','star','keep','trash'].forEach(t=>$("tab-"+t).classList.toggle('hide', t!==b.dataset.tab));
+    $("bar").style.display = b.dataset.tab==='sort' ? 'flex' : 'none';
   };
 });
 </script>
