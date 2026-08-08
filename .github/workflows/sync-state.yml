@@ -1,0 +1,50 @@
+name: sync-state
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Get latest state from Drive
+        run: |
+          python3 - <<'EOF'
+          import re, sys, json, urllib.request
+          FOLDER_ID = "1khgoxznHN0ad8-2MEiqpQVBJbs56LEIN"
+          url = "https://drive.google.com/embeddedfolderview?id=" + FOLDER_ID
+          html = urllib.request.urlopen(url).read().decode("utf-8", "replace")
+          entries = re.findall(r'id="entry-([-\w]+)"[\s\S]*?flip-entry-title">([^<]+)<', html)
+          cands = []
+          for fid, name in entries:
+              name = name.strip()
+              if re.fullmatch(r"state_.*\.json", name):
+                  m = re.search(r"(\d{8})", name)
+                  cands.append(((m.group(1) if m else "00000000"), name, fid))
+          if not cands:
+              print("no state files found in Drive folder")
+              sys.exit(1)
+          cands.sort()
+          date, name, fid = cands[-1]
+          print("latest:", name)
+          data = urllib.request.urlopen(
+              "https://drive.google.com/uc?export=download&id=" + fid).read()
+          json.loads(data.decode("utf-8"))
+          open("data/state.json", "wb").write(data)
+          EOF
+      - name: Commit if changed
+        run: |
+          if git diff --quiet -- data/state.json; then
+            echo "no change"
+            exit 0
+          fi
+          git config user.name "netacho-sync"
+          git config user.email "actions@users.noreply.github.com"
+          git add data/state.json
+          git commit -m "Drive→state.json 自動同期"
+          git push
