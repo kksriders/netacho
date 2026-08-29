@@ -94,6 +94,26 @@
     border-radius:9px;padding:9px 16px;cursor:pointer}
   .mbox .save{background:var(--amber);color:#1a1200}
   .mbox .cancel{background:var(--line);color:var(--ink)}
+  .reason{font-size:12px;color:var(--sub);margin-top:8px;border-left:2px solid var(--line);padding-left:9px}
+  .sect{font-size:14px;font-weight:800;margin:20px 0 8px}
+  .sect:first-child{margin-top:0}
+  .srcform{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap}
+  .srcform input{flex:1;min-width:150px;font:inherit;font-size:14px;padding:9px 10px;
+    border-radius:9px;border:1px solid var(--line);background:var(--panel);color:var(--ink)}
+  .srcform button{appearance:none;font:inherit;font-weight:800;font-size:13px;border:none;
+    background:var(--amber);color:#1a1200;border-radius:9px;padding:9px 16px;cursor:pointer;flex:none}
+  .tblwrap{overflow-x:auto}
+  .srctbl{width:100%;border-collapse:collapse;font-size:13px}
+  .srctbl th,.srctbl td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--line);vertical-align:top}
+  .srctbl th{color:var(--sub);font-size:12px;font-weight:700;white-space:nowrap}
+  .srctbl .n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .srctbl .dom{font-weight:700;word-break:break-all}
+  .thin{color:var(--sub);font-weight:400}
+  .rate{font-weight:800}
+  .rate.hi{color:var(--ok)} .rate.mid{color:var(--amber)} .rate.lo{color:var(--thru)}
+  .pin{background:var(--amber);color:#1a1200;font-size:11px;font-weight:700;border-radius:6px;padding:1px 7px;margin-right:4px}
+  .xbtn{appearance:none;background:none;border:1px solid var(--line);color:var(--sub);
+    border-radius:7px;font:inherit;font-size:11px;padding:3px 9px;cursor:pointer;white-space:nowrap}
 </style>
 </head>
 <body>
@@ -108,6 +128,8 @@
     <button data-tab="star">⭐ 一軍<span class="cnt" id="n-star">-</span></button>
     <button data-tab="keep">👍 キープ<span class="cnt" id="n-keep">-</span></button>
     <button data-tab="trash">ゴミ箱<span class="cnt" id="n-trash">-</span></button>
+    <button data-tab="miokuri">見送り<span class="cnt" id="n-miokuri">-</span></button>
+    <button data-tab="src">ソース<span class="cnt" id="n-src">-</span></button>
   </nav>
 </header>
 
@@ -127,6 +149,19 @@
   <section id="tab-trash" class="hide">
     <p class="note">➖スルーと❌ズレは30日間ここに保管され、その後自動削除。拾い直すときは[復活]を押してください(次の便で反映)。</p>
     <div id="list-trash"></div>
+  </section>
+  <section id="tab-miokuri" class="hide">
+    <p class="note">毎日便が「池が小さい」「既出」などの理由で<b>仕分けに出す前に落としたネタ</b>です。普段は見なくて構いません。週1回でも眺めて、拾ってほしかったものに[これは拾ってほしかった]を押すと、次の便で仕分けに上がり、足切り基準そのものの答え合わせになります。30日で自動削除されます。</p>
+    <div id="list-miokuri"></div>
+  </section>
+  <section id="tab-src" class="hide">
+    <p class="note">ネタを取りに行くサイトの管理。<b>鉄板リスト</b>に登録したサイトは、毎日便が優先的に見に行きます。下の採用率は、これまでの仕分け結果から自動で集計されたものです。</p>
+    <div class="srcform">
+      <input id="srcDom" placeholder="例: response.jp（URLを貼ってもOK）">
+      <input id="srcNote" placeholder="メモ（任意）">
+      <button onclick="addSource()">鉄板に追加</button>
+    </div>
+    <div id="list-src"></div>
   </section>
 </main>
 
@@ -154,12 +189,15 @@ let S = null;       // state.json
 let RUN = "";
 const sel = {};     // 今回の選択 num -> kind
 let sent = {};      // 送信済み num -> kind (ブラウザ保存)
+let picked = {};    // 拾う送信済み mid -> true (ブラウザ保存)
 
 const store = {
   get token(){ try{return localStorage.getItem("netacho_token")}catch(e){return null} },
   set token(v){ try{ v===null ? localStorage.removeItem("netacho_token") : localStorage.setItem("netacho_token", v) }catch(e){} },
   get sent(){ try{return JSON.parse(localStorage.getItem("netacho_sent")||"{}")}catch(e){return {}} },
-  set sent(v){ try{localStorage.setItem("netacho_sent", JSON.stringify(v))}catch(e){} }
+  set sent(v){ try{localStorage.setItem("netacho_sent", JSON.stringify(v))}catch(e){} },
+  get picked(){ try{return JSON.parse(localStorage.getItem("netacho_picked")||"{}")}catch(e){return {}} },
+  set picked(v){ try{localStorage.setItem("netacho_picked", JSON.stringify(v))}catch(e){} }
 };
 
 const $ = id => document.getElementById(id);
@@ -180,6 +218,11 @@ async function init(){
     sent = store.sent;
     Object.keys(sent).forEach(n=>{ if(!nums.has(Number(n))) delete sent[n]; });
     store.sent = sent;
+    // 拾う送信済みのうち、便が処理して見送りから消えたものは掃除
+    const mids = new Set(((S.netacho && S.netacho.miokuri)||[]).map(m=>m.mid));
+    picked = store.picked;
+    Object.keys(picked).forEach(m=>{ if(!mids.has(m)) delete picked[m]; });
+    store.picked = picked;
     render();
   }catch(e){
     $("runlabel").textContent = "データの読み込みに失敗しました。再読み込みしてください";
@@ -188,7 +231,7 @@ async function init(){
 
 function render(){
   $("runlabel").textContent = `最終更新: ${S.updated} 便${RUN}`;
-  renderSort(); renderStar(); renderKeep(); renderTrash(); refresh();
+  renderSort(); renderStar(); renderKeep(); renderTrash(); renderMiokuri(); renderSources(); refresh();
 }
 
 function itemHead(it, extra){
@@ -274,6 +317,78 @@ function renderTrash(){
   });
 }
 
+function renderMiokuri(){
+  const el = $("list-miokuri"); el.innerHTML = "";
+  const a = (S.netacho && S.netacho.miokuri) || [];
+  $("n-miokuri").textContent = a.length;
+  if(!a.length){
+    el.innerHTML = `<div class="empty">見送りの記録はまだありません。<b>次の便から溜まりはじめます。</b></div>`;
+    return;
+  }
+  a.forEach((it,i)=>{
+    const c = document.createElement('div'); c.className='card';
+    const done = picked[it.mid];
+    if(done) c.classList.add('sent');
+    const meta = `<span class="genre">${esc(it.genre||"")}</span><span>${esc(it.date||it.run||"")}</span>`
+      + (it.url ? `<a href="${esc(it.url)}" target="_blank" rel="noopener">元記事↗</a>` : "");
+    c.innerHTML = `<div class="top"><div class="num">–</div><div>
+        <div class="ttl">${esc(it.title||"(タイトルなし)")}</div>
+        <div class="meta">${meta}</div>
+      </div></div>
+      <div class="reason">足切り理由: ${esc(it.reason||"（記録なし）")}</div>
+      ${done
+        ? `<div class="sentmark">✅ 拾うで送信済み(次の便で仕分けに上がります)</div>`
+        : `<div class="revive"><button onclick="pickup(${i})">これは拾ってほしかった</button></div>`}`;
+    el.appendChild(c);
+  });
+}
+
+function renderSources(){
+  const el = $("list-src"); el.innerHTML = "";
+  const src = S.sources || {};
+  const man = src.manual || [];
+  const auto = src.auto || [];
+  $("n-src").textContent = man.length;
+  let h = `<h3 class="sect">鉄板リスト（手動登録）</h3>`;
+  if(!man.length){
+    h += `<div class="empty">まだ登録がありません。<b>上の欄から追加してください。</b></div>`;
+  }else{
+    h += `<div class="tblwrap"><table class="srctbl"><tr><th>サイト</th><th>メモ</th><th></th></tr>`;
+    man.forEach((m,i)=>{
+      h += `<tr><td class="dom"><span class="pin">鉄板</span>${esc(m.domain||"")}</td>`
+        + `<td class="thin">${esc(m.note||"")}</td>`
+        + `<td><button class="xbtn" onclick="unpinSource(${i})">外す</button></td></tr>`;
+    });
+    h += `</table></div>`;
+  }
+  h += `<h3 class="sect">サイト別の採用率（自動集計）</h3>`;
+  if(!auto.length){
+    h += `<div class="empty">次の土曜便が集計します。</div>`;
+  }else{
+    h += `<p class="note">判定済みが5本未満のサイトは、まだ参考値です（グレー表示）。${src.updated?`最終集計: ${esc(src.updated)}`:""}</p>`;
+    h += `<div class="tblwrap"><table class="srctbl"><tr><th>サイト</th><th class="n">⭐</th><th class="n">👍</th><th class="n">🗑</th><th class="n">採用率</th></tr>`;
+    auto.forEach(r=>{
+      const st=r.ichigun||0, kp=r.keep||0, tr=r.trash||0, t=st+kp+tr;
+      const rate = t ? Math.round((st+kp)*100/t) : 0;
+      const cls = t<5 ? 'lo' : (rate>=60 ? 'hi' : (rate>=40 ? 'mid' : 'lo'));
+      h += `<tr><td class="dom">${esc(r.domain||"")}</td>`
+        + `<td class="n">${st}</td><td class="n">${kp}</td><td class="n">${tr}</td>`
+        + `<td class="n"><span class="rate ${cls}">${t?rate+"%":"—"}</span>`
+        + (t<5 ? ` <span class="thin">(${t}本)</span>` : "") + `</td></tr>`;
+    });
+    h += `</table></div>`;
+  }
+  el.innerHTML = h;
+}
+
+function normDomain(s){
+  let v = String(s||"").trim();
+  if(!v) return "";
+  try{ if(/^https?:\/\//i.test(v)) v = new URL(v).hostname; }catch(e){ return ""; }
+  v = v.replace(/\/.*$/,"").replace(/^www\./i,"").toLowerCase();
+  return /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/.test(v) ? v : "";
+}
+
 function mark(num,kind){
   if(sent[num]) return;
   sel[num] = (sel[num]===kind) ? undefined : kind;
@@ -294,15 +409,17 @@ function refresh(){
   $("apply").disabled = !done;
 }
 
-async function push(payload, okMsg){
+async function push(payload, okMsg){ return pushTo("sorting", payload, okMsg); }
+
+async function pushTo(dir, payload, okMsg){
   const token = store.token;
   if(!token){ openSettings(); toast("先にGitHubトークンを登録してください", true); return false; }
-  const path = `data/sorting/${RUN}_${Date.now()}.json`;
+  const path = `data/${dir}/${RUN}_${Date.now()}.json`;
   try{
     const res = await fetch(`https://api.github.com/repos/${REPO}/contents/${path}`, {
       method:"PUT",
       headers:{ "Authorization":"Bearer "+token, "Accept":"application/vnd.github+json" },
-      body: JSON.stringify({ message:`仕分け ${RUN}`,
+      body: JSON.stringify({ message:`${dir==="sources"?"ソース登録":"仕分け"} ${RUN}`,
         content: btoa(unescape(encodeURIComponent(JSON.stringify(payload,null,2)))) })
     });
     if(!res.ok) throw new Error(res.status);
@@ -333,6 +450,34 @@ async function revive(num, to){
   await push(payload, `✅ No.${num}を復活リクエストしました(次の便で${to==='star'?'⭐一軍':'👍キープ'}へ)`);
 }
 
+async function pickup(i){
+  const it = ((S.netacho && S.netacho.miokuri)||[])[i];
+  if(!it || !it.mid || picked[it.mid]) return;
+  const payload = { run: RUN, sorted_at: new Date().toISOString(), pickup: [it.mid] };
+  const ok = await push(payload, "✅ 拾いました。次の便で仕分けに上がります");
+  if(ok){ picked[it.mid] = true; store.picked = picked; renderMiokuri(); }
+}
+
+async function addSource(){
+  const domain = normDomain($("srcDom").value);
+  if(!domain){ toast("サイトのURLかドメインを入れてください（例: response.jp）", true); return; }
+  const note = $("srcNote").value.trim();
+  const already = ((S.sources && S.sources.manual)||[]).some(m=>m.domain===domain);
+  if(already){ toast(`${domain} はすでに鉄板リストにあります`, true); return; }
+  const ok = await pushTo("sources",
+    { added_at: new Date().toISOString(), add: [{domain, note}] },
+    `✅ ${domain} を鉄板に登録しました(次の便から優先します)`);
+  if(ok){ $("srcDom").value = ""; $("srcNote").value = ""; }
+}
+
+async function unpinSource(i){
+  const m = ((S.sources && S.sources.manual)||[])[i];
+  if(!m || !m.domain) return;
+  await pushTo("sources",
+    { added_at: new Date().toISOString(), remove: [m.domain] },
+    `✅ ${m.domain} を鉄板リストから外しました(次の便で反映)`);
+}
+
 function toast(msg, err){
   const t = $("toast"); t.textContent = msg;
   t.className = "toast show" + (err ? " err" : "");
@@ -349,7 +494,7 @@ document.querySelectorAll('nav button').forEach(b=>{
   b.onclick = ()=>{
     document.querySelectorAll('nav button').forEach(x=>x.classList.remove('act'));
     b.classList.add('act');
-    ['sort','star','keep','trash'].forEach(t=>$("tab-"+t).classList.toggle('hide', t!==b.dataset.tab));
+    ['sort','star','keep','trash','miokuri','src'].forEach(t=>$("tab-"+t).classList.toggle('hide', t!==b.dataset.tab));
     $("bar").style.display = b.dataset.tab==='sort' ? 'flex' : 'none';
   };
 });
