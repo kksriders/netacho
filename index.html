@@ -214,7 +214,7 @@ function renderSort(){
     c.innerHTML = `
       ${carried ? '<div class="carry">前回から繰り越し(未判断)</div>' : ''}
       ${itemHead(it, meta)}
-      ${pred ? `<div class="pred">私の予想: <b>${esc(pred.prediction)}</b></div>` : ''}
+      ${pred && done ? `<div class="pred">私の予想: <b>${esc(pred.pred)}</b></div>` : ''}
       ${done
         ? `<div class="sentmark">✅ ${({star:"⭐一軍",keep:"👍キープ",thru:"➖スルー",drop:"❌ズレ"})[done]}で送信済み(次の便で移動)</div>`
         : `<div class="acts">
