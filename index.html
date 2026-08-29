@@ -112,6 +112,7 @@
   .rate{font-weight:800}
   .rate.hi{color:var(--ok)} .rate.mid{color:var(--amber)} .rate.lo{color:var(--thru)}
   .pin{background:var(--amber);color:#1a1200;font-size:11px;font-weight:700;border-radius:6px;padding:1px 7px;margin-right:4px}
+  .pin.wait{background:none;border:1px solid var(--amber);color:var(--amber)}
   .xbtn{appearance:none;background:none;border:1px solid var(--line);color:var(--sub);
     border-radius:7px;font:inherit;font-size:11px;padding:3px 9px;cursor:pointer;white-space:nowrap}
 </style>
@@ -190,6 +191,8 @@ let RUN = "";
 const sel = {};     // 今回の選択 num -> kind
 let sent = {};      // 送信済み num -> kind (ブラウザ保存)
 let picked = {};    // 拾う送信済み mid -> true (ブラウザ保存)
+let psrc = {};      // 便に未反映のソース操作 domain -> {op,note} (ブラウザ保存)
+let srcRows = [];   // ソースタブに今表示している行
 
 const store = {
   get token(){ try{return localStorage.getItem("netacho_token")}catch(e){return null} },
@@ -197,7 +200,9 @@ const store = {
   get sent(){ try{return JSON.parse(localStorage.getItem("netacho_sent")||"{}")}catch(e){return {}} },
   set sent(v){ try{localStorage.setItem("netacho_sent", JSON.stringify(v))}catch(e){} },
   get picked(){ try{return JSON.parse(localStorage.getItem("netacho_picked")||"{}")}catch(e){return {}} },
-  set picked(v){ try{localStorage.setItem("netacho_picked", JSON.stringify(v))}catch(e){} }
+  set picked(v){ try{localStorage.setItem("netacho_picked", JSON.stringify(v))}catch(e){} },
+  get psrc(){ try{return JSON.parse(localStorage.getItem("netacho_psrc")||"{}")}catch(e){return {}} },
+  set psrc(v){ try{localStorage.setItem("netacho_psrc", JSON.stringify(v))}catch(e){} }
 };
 
 const $ = id => document.getElementById(id);
@@ -223,6 +228,14 @@ async function init(){
     picked = store.picked;
     Object.keys(picked).forEach(m=>{ if(!mids.has(m)) delete picked[m]; });
     store.picked = picked;
+    // 便が処理し終えたソース操作は「反映待ち」から外す
+    const man = new Set(((S.sources && S.sources.manual)||[]).map(m=>m.domain));
+    psrc = store.psrc;
+    Object.keys(psrc).forEach(d=>{
+      const op = psrc[d].op;
+      if((op==="add" && man.has(d)) || (op==="remove" && !man.has(d))) delete psrc[d];
+    });
+    store.psrc = psrc;
     render();
   }catch(e){
     $("runlabel").textContent = "データの読み込みに失敗しました。再読み込みしてください";
@@ -348,18 +361,28 @@ function renderSources(){
   const src = S.sources || {};
   const man = src.manual || [];
   const auto = src.auto || [];
-  $("n-src").textContent = man.length;
+  // 便に反映済みのぶん + まだ反映されていない手元の操作 を合わせて表示する
+  srcRows = man
+    .filter(m => !(psrc[m.domain] && psrc[m.domain].op === "remove"))
+    .map(m => ({domain:m.domain, note:m.note, pending:false}))
+    .concat(Object.keys(psrc)
+      .filter(d => psrc[d].op === "add" && !man.some(m => m.domain === d))
+      .map(d => ({domain:d, note:psrc[d].note, pending:true})));
+  $("n-src").textContent = srcRows.length;
   let h = `<h3 class="sect">鉄板リスト（手動登録）</h3>`;
-  if(!man.length){
+  if(!srcRows.length){
     h += `<div class="empty">まだ登録がありません。<b>上の欄から追加してください。</b></div>`;
   }else{
     h += `<div class="tblwrap"><table class="srctbl"><tr><th>サイト</th><th>メモ</th><th></th></tr>`;
-    man.forEach((m,i)=>{
-      h += `<tr><td class="dom"><span class="pin">鉄板</span>${esc(m.domain||"")}</td>`
+    srcRows.forEach((m,i)=>{
+      h += `<tr><td class="dom">`
+        + (m.pending ? `<span class="pin wait">反映待ち</span>` : `<span class="pin">鉄板</span>`)
+        + `${esc(m.domain||"")}</td>`
         + `<td class="thin">${esc(m.note||"")}</td>`
-        + `<td><button class="xbtn" onclick="unpinSource(${i})">外す</button></td></tr>`;
+        + `<td><button class="xbtn" onclick="unpinSource(${i})">${m.pending?"取り消し":"外す"}</button></td></tr>`;
     });
     h += `</table></div>`;
+    if(srcRows.some(m=>m.pending)) h += `<p class="note">「反映待ち」は保存済みです。次の便（平日7:00／土10:30）が読み込むと「鉄板」に変わります。</p>`;
   }
   h += `<h3 class="sect">サイト別の採用率（自動集計）</h3>`;
   if(!auto.length){
@@ -462,20 +485,31 @@ async function addSource(){
   const domain = normDomain($("srcDom").value);
   if(!domain){ toast("サイトのURLかドメインを入れてください（例: response.jp）", true); return; }
   const note = $("srcNote").value.trim();
-  const already = ((S.sources && S.sources.manual)||[]).some(m=>m.domain===domain);
-  if(already){ toast(`${domain} はすでに鉄板リストにあります`, true); return; }
+  if(srcRows.some(m=>m.domain===domain)){ toast(`${domain} はすでに鉄板リストにあります`, true); return; }
   const ok = await pushTo("sources",
     { added_at: new Date().toISOString(), add: [{domain, note}] },
     `✅ ${domain} を鉄板に登録しました(次の便から優先します)`);
-  if(ok){ $("srcDom").value = ""; $("srcNote").value = ""; }
+  if(ok){
+    psrc[domain] = {op:"add", note};
+    store.psrc = psrc;
+    $("srcDom").value = ""; $("srcNote").value = "";
+    renderSources();
+  }
 }
 
 async function unpinSource(i){
-  const m = ((S.sources && S.sources.manual)||[])[i];
+  const m = srcRows[i];
   if(!m || !m.domain) return;
-  await pushTo("sources",
+  const ok = await pushTo("sources",
     { added_at: new Date().toISOString(), remove: [m.domain] },
-    `✅ ${m.domain} を鉄板リストから外しました(次の便で反映)`);
+    m.pending ? `✅ ${m.domain} の登録を取り消しました` : `✅ ${m.domain} を鉄板リストから外しました(次の便で反映)`);
+  if(ok){
+    // 反映待ちの追加を取り消した場合は手元の印ごと消す。反映済みを外した場合は
+    // 便が処理するまで「外した状態」を手元で覚えておく
+    if(m.pending) delete psrc[m.domain]; else psrc[m.domain] = {op:"remove"};
+    store.psrc = psrc;
+    renderSources();
+  }
 }
 
 function toast(msg, err){
