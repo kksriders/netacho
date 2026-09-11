@@ -115,6 +115,12 @@
   .pin.wait{background:none;border:1px solid var(--amber);color:var(--amber)}
   .xbtn{appearance:none;background:none;border:1px solid var(--line);color:var(--sub);
     border-radius:7px;font:inherit;font-size:11px;padding:3px 9px;cursor:pointer;white-space:nowrap}
+  .revive button.b-done{border-color:var(--ok);color:var(--ok)}
+  .hidebar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:12px;color:var(--sub);margin-bottom:12px}
+  .bulkbar{position:sticky;bottom:12px;margin-top:14px;display:flex;justify-content:center}
+  .bulkbar button{appearance:none;font:inherit;font-weight:800;font-size:14px;border:none;
+    background:var(--ok);color:#04270f;border-radius:10px;padding:12px 20px;cursor:pointer;
+    box-shadow:0 4px 14px rgba(0,0,0,.45)}
 </style>
 </head>
 <body>
@@ -152,7 +158,7 @@
     <div id="list-trash"></div>
   </section>
   <section id="tab-miokuri" class="hide">
-    <p class="note">毎日便が「池が小さい」「既出」などの理由で<b>仕分けに出す前に落としたネタ</b>です。普段は見なくて構いません。週1回でも眺めて、拾ってほしかったものに[これは拾ってほしかった]を押すと、次の便で仕分けに上がり、足切り基準そのものの答え合わせになります。30日で自動削除されます。</p>
+    <p class="note">毎日便が「池が小さい」「既出」などの理由で<b>仕分けに出す前に落としたネタ</b>です。普段は見なくて構いません。週1回でも眺めて、拾ってほしかったものに[これは拾ってほしかった]を押すと、次の便で仕分けに上がり、足切り基準そのものの答え合わせになります。<b>見終わったら[確認済みにする]を押すと、ここから消えます。</b>次に来たときは未チェックのものだけが並びます。押さなかったものも30日で自動削除されます。</p>
     <div id="list-miokuri"></div>
   </section>
   <section id="tab-src" class="hide">
@@ -191,6 +197,7 @@ let RUN = "";
 const sel = {};     // 今回の選択 num -> kind
 let sent = {};      // 送信済み num -> kind (ブラウザ保存)
 let picked = {};    // 拾う送信済み mid -> true (ブラウザ保存)
+let checked = {};   // 見送りの確認済み mid -> true (ブラウザ保存)
 let psrc = {};      // 便に未反映のソース操作 domain -> {op,note} (ブラウザ保存)
 let srcRows = [];   // ソースタブに今表示している行
 
@@ -201,6 +208,8 @@ const store = {
   set sent(v){ try{localStorage.setItem("netacho_sent", JSON.stringify(v))}catch(e){} },
   get picked(){ try{return JSON.parse(localStorage.getItem("netacho_picked")||"{}")}catch(e){return {}} },
   set picked(v){ try{localStorage.setItem("netacho_picked", JSON.stringify(v))}catch(e){} },
+  get checked(){ try{return JSON.parse(localStorage.getItem("netacho_checked")||"{}")}catch(e){return {}} },
+  set checked(v){ try{localStorage.setItem("netacho_checked", JSON.stringify(v))}catch(e){} },
   get psrc(){ try{return JSON.parse(localStorage.getItem("netacho_psrc")||"{}")}catch(e){return {}} },
   set psrc(v){ try{localStorage.setItem("netacho_psrc", JSON.stringify(v))}catch(e){} }
 };
@@ -228,6 +237,10 @@ async function init(){
     picked = store.picked;
     Object.keys(picked).forEach(m=>{ if(!mids.has(m)) delete picked[m]; });
     store.picked = picked;
+    // 確認済みの印も、便が見送りから消したものは掃除
+    checked = store.checked;
+    Object.keys(checked).forEach(m=>{ if(!mids.has(m)) delete checked[m]; });
+    store.checked = checked;
     // 便が処理し終えたソース操作は「反映待ち」から外す
     const man = new Set(((S.sources && S.sources.manual)||[]).map(m=>m.domain));
     psrc = store.psrc;
@@ -332,13 +345,22 @@ function renderTrash(){
 
 function renderMiokuri(){
   const el = $("list-miokuri"); el.innerHTML = "";
-  const a = (S.netacho && S.netacho.miokuri) || [];
+  const all = (S.netacho && S.netacho.miokuri) || [];
+  const a = all.filter(it=>!checked[it.mid]);   // 確認済みは並べない
+  const hidden = all.length - a.length;
   $("n-miokuri").textContent = a.length;
+  const bar = hidden
+    ? `<div class="hidebar">確認済み ${hidden}件は非表示です（次の便で見送りから削除されます）
+        <button class="xbtn" onclick="unhideMiokuri()">すべて再表示</button></div>`
+    : "";
   if(!a.length){
-    el.innerHTML = `<div class="empty">見送りの記録はまだありません。<b>次の便から溜まりはじめます。</b></div>`;
+    el.innerHTML = bar + `<div class="empty">${all.length
+      ? "未チェックの見送りはありません。<b>次の便の分をお待ちください。</b>"
+      : "見送りの記録はまだありません。<b>次の便から溜まりはじめます。</b>"}</div>`;
     return;
   }
-  a.forEach((it,i)=>{
+  el.innerHTML = bar;
+  a.forEach(it=>{
     const c = document.createElement('div'); c.className='card';
     const done = picked[it.mid];
     if(done) c.classList.add('sent');
@@ -351,9 +373,18 @@ function renderMiokuri(){
       <div class="reason">足切り理由: ${esc(it.reason||"（記録なし）")}</div>
       ${done
         ? `<div class="sentmark">✅ 拾うで送信済み(次の便で仕分けに上がります)</div>`
-        : `<div class="revive"><button onclick="pickup(${i})">これは拾ってほしかった</button></div>`}`;
+        : `<div class="revive">
+            <button onclick="pickup('${esc(it.mid)}')">これは拾ってほしかった</button>
+            <button class="b-done" onclick="doneMiokuri(['${esc(it.mid)}'])">✓ 確認済み</button>
+          </div>`}`;
     el.appendChild(c);
   });
+  const rest = a.filter(it=>!picked[it.mid]).map(it=>it.mid);
+  if(rest.length){
+    const b = document.createElement('div'); b.className='bulkbar';
+    b.innerHTML = `<button onclick="doneAllMiokuri()">✓ ここまで見た — ${rest.length}件を確認済みにする</button>`;
+    el.appendChild(b);
+  }
 }
 
 function renderSources(){
@@ -434,9 +465,9 @@ function refresh(){
 
 async function push(payload, okMsg){ return pushTo("sorting", payload, okMsg); }
 
-async function pushTo(dir, payload, okMsg){
+async function pushTo(dir, payload, okMsg, quiet){
   const token = store.token;
-  if(!token){ openSettings(); toast("先にGitHubトークンを登録してください", true); return false; }
+  if(!token){ if(!quiet){ openSettings(); toast("先にGitHubトークンを登録してください", true); } return false; }
   const path = `data/${dir}/${RUN}_${Date.now()}.json`;
   try{
     const res = await fetch(`https://api.github.com/repos/${REPO}/contents/${path}`, {
@@ -448,7 +479,7 @@ async function pushTo(dir, payload, okMsg){
     if(!res.ok) throw new Error(res.status);
     toast(okMsg); return true;
   }catch(e){
-    toast("送信に失敗しました("+e.message+")。通信環境とトークンを確認してください", true);
+    if(!quiet) toast("送信に失敗しました("+e.message+")。通信環境とトークンを確認してください", true);
     return false;
   }
 }
@@ -473,12 +504,38 @@ async function revive(num, to){
   await push(payload, `✅ No.${num}を復活リクエストしました(次の便で${to==='star'?'⭐一軍':'👍キープ'}へ)`);
 }
 
-async function pickup(i){
-  const it = ((S.netacho && S.netacho.miokuri)||[])[i];
+async function pickup(mid){
+  const it = ((S.netacho && S.netacho.miokuri)||[]).find(x=>x.mid===mid);
   if(!it || !it.mid || picked[it.mid]) return;
   const payload = { run: RUN, sorted_at: new Date().toISOString(), pickup: [it.mid] };
   const ok = await push(payload, "✅ 拾いました。次の便で仕分けに上がります");
   if(ok){ picked[it.mid] = true; store.picked = picked; renderMiokuri(); }
+}
+
+// 見終わった見送りネタを一覧から消す。便にも伝えてstate.jsonから削除してもらう
+async function doneMiokuri(mids){
+  mids = (mids||[]).filter(m=>m && !checked[m]);
+  if(!mids.length) return;
+  const payload = { run: RUN, sorted_at: new Date().toISOString(), miokuri_done: mids };
+  const ok = await pushTo("sorting", payload,
+    `✅ ${mids.length}件を確認済みにしました（次の便で見送りから削除されます）`, true);
+  mids.forEach(m=>{ checked[m] = true; });
+  store.checked = checked;
+  renderMiokuri();
+  if(!ok) toast(`⚠️ 送信できなかったので、この端末でのみ${mids.length}件を非表示にしました`, true);
+}
+
+function doneAllMiokuri(){
+  const rest = ((S.netacho && S.netacho.miokuri)||[])
+    .filter(it=>!checked[it.mid] && !picked[it.mid]).map(it=>it.mid);
+  if(!rest.length) return;
+  if(!confirm(`表示中の${rest.length}件を確認済みにして一覧から消します。よろしいですか？`)) return;
+  doneMiokuri(rest);
+}
+
+function unhideMiokuri(){
+  checked = {}; store.checked = checked; renderMiokuri();
+  toast("確認済みを再表示しました（便が削除するまでの間だけ戻ります）");
 }
 
 async function addSource(){
