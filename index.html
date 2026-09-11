@@ -216,6 +216,9 @@ const store = {
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+// 新しい順に並べ替える(同じ日付どうしは元の順番のまま)
+const newestFirst = (arr, key) => (arr||[]).slice()
+  .sort((x,y)=> String(key(y)||"").localeCompare(String(key(x)||"")));
 const days = (from, n) => { // fromからn日後まで残り日数
   const end = new Date(from); end.setDate(end.getDate()+n);
   return Math.max(0, Math.ceil((end - Date.now())/86400000));
@@ -298,7 +301,7 @@ function renderSort(){
 
 function renderStar(){
   const el = $("list-star"); el.innerHTML = "";
-  const a = S.netacho.ichigun || [];
+  const a = newestFirst(S.netacho.ichigun, it=>it.starred);
   $("n-star").textContent = a.length;
   if(!a.length){ el.innerHTML = `<div class="empty">まだ一軍はありません。<b>仕分けタブで⭐を付けると、ここに溜まっていきます。</b></div>`; return; }
   a.forEach(it=>{
@@ -313,7 +316,7 @@ function renderStar(){
 
 function renderKeep(){
   const el = $("list-keep"); el.innerHTML = "";
-  const a = S.netacho.keep || [];
+  const a = newestFirst(S.netacho.keep, it=>it.kept);
   $("n-keep").textContent = a.length;
   if(!a.length){ el.innerHTML = `<div class="empty">まだキープはありません。<b>「今すぐじゃないけど使えそう」を👍でここへ。</b></div>`; return; }
   a.forEach(it=>{
@@ -327,7 +330,7 @@ function renderKeep(){
 
 function renderTrash(){
   const el = $("list-trash"); el.innerHTML = "";
-  const a = S.netacho.trash || [];
+  const a = newestFirst(S.netacho.trash, it=>it.trashed);
   $("n-trash").textContent = a.length;
   if(!a.length){ el.innerHTML = `<div class="empty">ゴミ箱は空です。</div>`; return; }
   a.forEach(it=>{
@@ -345,7 +348,7 @@ function renderTrash(){
 
 function renderMiokuri(){
   const el = $("list-miokuri"); el.innerHTML = "";
-  const all = (S.netacho && S.netacho.miokuri) || [];
+  const all = newestFirst((S.netacho && S.netacho.miokuri), it=>it.date||it.run);
   const a = all.filter(it=>!checked[it.mid]);   // 確認済みは並べない
   const hidden = all.length - a.length;
   $("n-miokuri").textContent = a.length;
